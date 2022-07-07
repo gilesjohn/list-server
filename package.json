@@ -12,7 +12,7 @@
     "url": "git+https://github.com/gilesjohn/list-server.git"
   },
   "author": "gilesjohn",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/gilesjohn/list-server/issues"
   },
