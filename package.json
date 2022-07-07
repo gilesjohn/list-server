@@ -1,7 +1,7 @@
 {
   "name": "list-server",
   "version": "1.0.0",
-  "description": "Express server for networked list app",
+  "description": "Express implementation of a server for a list app",
   "main": "app.js",
   "scripts": {
     "test": "node test/app.test.mjs",
