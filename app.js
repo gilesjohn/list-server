@@ -1,5 +1,7 @@
 const express = require('express')
 const app = express()
+app.use(express.static('public'))
+
 const domain = "localhost"
 const port = 3000
 
