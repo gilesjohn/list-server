@@ -51,10 +51,15 @@ async function main() {
 
     // Add two lists
     const addList1 = await request("/lists", "POST", {name: "myList", items: []})
-    const addList2 = await request("/lists", "POST", {name: "myList2", items: []})
-    if (!(addList1.ok && addList2.ok)) {
-        fail("Unable to create two lists")
+    if (!addList1.ok) {
+        fail("Unable to create list 1")
     }
+    const list1Id = (await addList1.json())._id
+    const addList2 = await request("/lists", "POST", {name: "myList2", items: []})
+    if (!addList2.ok) {
+        fail("Unable to create list 2")
+    }
+    const list2Id = (await addList2.json())._id
 
     // Check the created lists are available
     const getTwoLists = await request("/lists")
@@ -67,19 +72,19 @@ async function main() {
     }
 
     // Get our lists individually
-    const getOneOfTwoLists = await request("/lists/1") // TODO should probably save an id from the POST
-    if (!getOneOfTwoLists.ok) {
-        fail("Unable to get one of our two lists")
+    const getListTwo = await request(`/lists/${list2Id}`)
+    if (!getListTwo.ok) {
+        fail("Unable to get list two")
     }
-    const oneOfTwoLists = await getOneOfTwoLists.json()
-    if (oneOfTwoLists.name == null || oneOfTwoLists.items == null || oneOfTwoLists.id == null || oneOfTwoLists.name != "myList2") {
-        fail("We didn't receive one of our two lists")
+    const listTwo = await getListTwo.json()
+    if (listTwo.name == null || listTwo.items == null || listTwo._id == null || listTwo.name != "myList2") {
+        fail("We didn't receive list two")
     }
 
     // Update a list
-    const putUpdateList = await request("/lists/1", "PUT", {name: "a second list", items: []})
+    const putUpdateList = await request(`/lists/${list2Id}`, "PUT", {name: "a second list"})
     if (!putUpdateList.ok) {
-        fail("Couldn't update a list")
+        fail("Couldn't update list 2")
     }
     const getAllLists = await request("/lists")
     if (!getAllLists.ok) {

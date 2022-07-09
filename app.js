@@ -1,75 +1,130 @@
 // Package imports
+require('dotenv').config()
 const express = require('express')
 const cors = require('cors');
+const mongodb = require('mongodb')
+const bson = require('bson')
 
 // Local imports
 
 // Constants
-const domain = "localhost"
-const port = 3000
+const domain = 'localhost'
+const port = process.env.PORT || 3000
 
-// Main
-let listCounter = 0
-let lists = []
-
+// Configure app
 const app = express()
 app.use(cors())
 app.use(express.json())
 app.use(express.static('public'))
 
-app.get('/', (req, res) => {
+const MongoClient = mongodb.MongoClient
+
+// TODO database can provide validation
+
+let dbClient = null
+let db = null
+/**
+ * @returns {mongodb.Db}
+ */
+async function connectToDatabase() {
+    if (dbClient == null) {
+        dbClient = await MongoClient.connect(process.env.DATABASE_URL, {
+            // Options
+        })
+    }
+
+    if (db == null) {
+        db = dbClient.db('lists')
+    }
+
+    return db
+}
+
+function stringIdToObjectId(stringId) {
+    try {
+        return mongodb.ObjectId(stringId)
+    } catch (e) {
+        if (e instanceof bson.BSONTypeError) {
+            return null
+        } else {
+            throw e
+        }
+    }
+}
+
+// Create routes
+app.get('/hello-world', (req, res) => {
     res.send('Hello, world!')
 })
 
-app.get('/lists', (req, res) => {
+app.get('/lists', async (req, res) => {
+    const db = await connectToDatabase()
+    const lists = await db.collection("lists").find({}).toArray() // TODO only users lists
     res.send(lists)
 })
 
-app.get('/lists/:id', (req, res) => {
-    const list = lists.filter(l => l.id == req.params.id)
-    if (list.length === 0) {
-        res.sendStatus(404)
+app.get('/lists/:id', async (req, res) => {
+    const db = await connectToDatabase()
+    const objectId = stringIdToObjectId(req.params.id)
+    if (objectId == null) {
+        res.sendStatus(400)
     } else {
-        res.send(list[0])
-    }
-})
-
-app.post('/lists', (req, res) => {
-    req.body.id = listCounter++
-    lists.push(req.body)
-    res.status(201)
-    res.location(`/lists/${req.body.id}`)
-    res.send(req.body)
-})
-
-app.put('/lists/:id', (req, res) => {
-    const list = lists.filter(l => l.id == req.params.id)
-    if (list.length === 0) {
-        res.sendStatus(404)
-    } else {
-        for (const key in req.body) {
-            if (Object.hasOwn(req.body, key)) {
-                list[0][key] = req.body[key]
-            }
+        const list = await db.collection("lists").findOne({_id: objectId}) // TODO only users list
+        if (list == null) {
+            res.sendStatus(404)
+        } else {
+            res.send(list)
         }
-        res.send(list[0])
     }
 })
 
-app.delete('/lists/:id', (req, res) => {
-    const listInd = lists.findIndex(l => l.id === req.params.id)
-    if (listInd !== -1) {
-        lists.splice(listInd)
+app.post('/lists', async (req, res) => {
+    const db = await connectToDatabase()
+    const list = req.body
+    const result = await db.collection('lists').insertOne(list) // TODO add user id
+    list._id = result.insertedId
+    res.status(201)
+    res.location(`/lists/${list._id}`)
+    res.send(list)
+})
+
+app.put('/lists/:id', async (req, res) => {
+    const db = await connectToDatabase()
+    const objectId = stringIdToObjectId(req.params.id)
+    if (objectId == null) {
+        res.sendStatus(400)
+    } else {
+        const list = await db.collection('lists').findOneAndUpdate({_id: objectId}, {$set: req.body}, {returnDocument: "after"}) // TODO only update this users list
+        if (list == null) {
+            res.sendStatus(404)
+        } else {
+            res.send(list)
+        }
     }
+})
+
+app.delete('/lists/:id', async (req, res) => {
+    const db = await connectToDatabase()
+    const objectId = stringIdToObjectId(req.params.id)
+    if (objectId == null) {
+        res.sendStatus(400)
+    } else {
+        // TODO how is this going to fail, e.g. if it doesn't exist
+        const result = await db.collection('lists').deleteOne({_id: objectId}) // TODO only delete this users list
+        res.sendStatus(204)
+        if (result.deletedCount != 1) {
+            // TODO Would this happen? maybe multiple delete calls? keep track of?
+        }
+    }
+})
+
+app.delete('/lists', async (req, res) => {
+    const db = await connectToDatabase()
+    const result = await db.collection('lists').deleteMany({})
     res.sendStatus(204)
 })
 
-app.delete('/lists', (req, res) => {
-    lists = []
-    listCounter = 0
-    res.sendStatus(204)
-})
-
+// Start server
 app.listen(port, () => {
     console.log(`App running at http://${domain}:${port}`)
 })
